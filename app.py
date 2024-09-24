@@ -17,6 +17,11 @@ CORS(app)  # Adiciona suporte ao CORS
 api = Api(app, version='1.0', title='API de Distribuição de Horários',
           description='Uma API para distribuir horários e salas.')
 
+# Rota para servir o front-end (index.html)
+@app.route('/')
+def serve_frontend():
+    return send_from_directory('frontend', 'index.html')
+
 app.logger.setLevel(logging.INFO)
 
 # Configuração do DEAP
