@@ -310,6 +310,5 @@ def distribuir_salas_func(dados_saida, salas_disponiveis):
             entrada[3] = ''  # Marca a sala como vazia se o dia não estiver definido
 
 
-#if __name__ == '__main__':
-    #app.logger.setLevel(logging.INFO)
-    #app.run(port=5000, host='localhost', debug=True)
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
