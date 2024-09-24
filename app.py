@@ -15,12 +15,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 app = Flask(__name__)
 CORS(app)  # Adiciona suporte ao CORS
 api = Api(app, version='1.0', title='API de Distribuição de Horários',
-          description='Uma API para distribuir horários e salas.')
+          description='Uma API para distribuir horários e salas.',
+          doc='/api-docs')
 
 # Rota para servir o front-end (index.html)
 @app.route('/')
 def serve_frontend():
-    return send_from_directory('frontend', 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 # Serve arquivos estáticos (CSS, JS, etc.)
 @app.route('/<path:path>')
