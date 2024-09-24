@@ -1,6 +1,6 @@
 import logging
 from flask_cors import CORS
-from flask import Flask, request, send_file
+from flask import Flask, send_from_directory, request, send_file
 from flask_restx import Api, Resource
 import pandas as pd
 import numpy as np
