@@ -1,0 +1,10 @@
+Flask
+gunicorn
+pandas
+numpy
+Flask-Cors
+flask-restx
+matplotlib
+deap
+openpyxl
+xlsxwriter
