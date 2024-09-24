@@ -1,1 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distribuição de Horários</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(to right, #6dd5fa, #2980b9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        .container {
+            background: #fff;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .form-label {
+            font-weight: bold;
+        }
+
+        .form-check-label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-select, .form-control {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h4 class="mb-4">Distribuição de Horários</h4>
+        <form id="uploadForm">
+            <div class="mb-3 text-start">
+                <label for="fileInput" class="form-label">Escolha o arquivo Excel</label>
+                <input type="file" class="form-control" id="fileInput" name="file" accept=".xlsx" required>
+            </div>
+            <div class="form-check mb-3 text-start">
+                <input class="form-check-input" type="checkbox" value="" id="distributeRooms" name="distributeRooms">
+                <label class="form-check-label" for="distributeRooms">
+                    Distribuir salas
+                </label>
+            </div>
+            <div class="mb-3 text-start">
+                <label for="geneticLevel" class="form-label">Nível de desempenho</label>
+                <select class="form-select" id="geneticLevel" name="geneticLevel" required>
+                    <option value="razoável">Razoável</option>
+                    <option value="normal">Normal</option>
+                    <option value="bom">Bom</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Fazer download</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput').files[0];
+            const distributeRooms = document.getElementById('distributeRooms').checked;
+            const geneticLevel = document.getElementById('geneticLevel').value;
+
+            formData.append('file', fileInput);
+            formData.append('distributeRooms', distributeRooms);
+            formData.append('geneticLevel', geneticLevel);
+
+            fetch('/api/upload/', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.blob();
+                    } else {
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Erro ao processar o arquivo');
+                        });
+                    }
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'horarios_otimizados_saida.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Ocorreu um erro: ' + error.message);
+                });
+        });
+    </script>
+
+</body>
+
+</html>
