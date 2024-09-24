@@ -20,7 +20,7 @@ api = Api(app, version='1.0', title='API de Distribuição de Horários',
 # Rota para servir o front-end (index.html)
 @app.route('/')
 def serve_frontend():
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory('frontend', 'index.html')
 
 # Serve arquivos estáticos (CSS, JS, etc.)
 @app.route('/<path:path>')
