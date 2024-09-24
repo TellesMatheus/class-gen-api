@@ -18,6 +18,8 @@ api = Api(app, version='1.0', title='API de Distribuição de Horários',
           description='Uma API para distribuir horários e salas.',
           doc='/api-docs')
 
+app.static_folder = 'frontend'
+
 # Rota para servir o front-end (index.html)
 @app.route('/app')
 def serve_frontend():
