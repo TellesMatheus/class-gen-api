@@ -22,6 +22,11 @@ api = Api(app, version='1.0', title='API de Distribuição de Horários',
 def serve_frontend():
     return send_from_directory('frontend', 'index.html')
 
+# Serve arquivos estáticos (CSS, JS, etc.)
+@app.route('/<path:path>')
+def serve_static_files(path):
+    return send_from_directory(app.static_folder, path)
+
 app.logger.setLevel(logging.INFO)
 
 # Configuração do DEAP
