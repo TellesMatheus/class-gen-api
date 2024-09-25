@@ -86,7 +86,7 @@ class UploadFile(Resource):
             salas_disponiveis = dados.iloc[0]['Sala'].split(', ')
 
             dados_saida = processar_dados(
-                dados, salas_disponiveis, distribuir_salas, semestre, tamanho_populacao)
+                dados, salas_disponiveis, distribuir_salas, semestre)
             df_saida = pd.DataFrame(dados_saida, columns=[
                                     'Professor', 'Dia da Aula', 'Componente', 'Sala', 'Semestre'])
 
