@@ -159,7 +159,6 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre):
     toolbox.register("mutate", mutacao, dados=dados)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
-    melhor_individuo = tools.selBest(resultado, k=1)[0]
     dados_saida = [[prof, dia, comp, '', semestre]
                    for prof, dia, comp in melhor_individuo]
 
