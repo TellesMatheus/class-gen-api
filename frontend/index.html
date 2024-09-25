@@ -98,7 +98,7 @@
             formData.append('distributeRooms', distributeRooms);
             formData.append('geneticLevel', geneticLevel);
 
-            fetch('/api/upload/', {
+            fetch('/upload/', {
                 method: 'POST',
                 body: formData
             })
