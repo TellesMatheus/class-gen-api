@@ -7,7 +7,6 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
-import matplotlib.pyplot as plt
 
 # Configuração de Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
