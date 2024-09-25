@@ -7,6 +7,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
+import matplotlib.pyplot as plt
 
 # Configuração de Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -86,7 +87,7 @@ class UploadFile(Resource):
             salas_disponiveis = dados.iloc[0]['Sala'].split(', ')
 
             dados_saida = processar_dados(
-                dados, salas_disponiveis, distribuir_salas, semestre)
+                dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao)
             df_saida = pd.DataFrame(dados_saida, columns=[
                                     'Professor', 'Dia da Aula', 'Componente', 'Sala', 'Semestre'])
 
@@ -150,7 +151,7 @@ def validar_componentes_sem_professor(dados):
     return True, None
 
 # Método para processar os dados e executar o algoritmo genético
-def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre):
+def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
     toolbox.register("individual", tools.initIterate,
                      creator.Individuo, criar_individuo(dados))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -159,6 +160,12 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre):
     toolbox.register("mutate", mutacao, dados=dados)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
+    populacao = toolbox.population(n=tamanho_populacao)
+    
+    # Coletar métricas durante o algoritmo genético
+    resultado, medias = coletar_metricas(populacao, toolbox, cxpb, mutpb, ngen)
+
+    melhor_individuo = tools.selBest(resultado, k=1)[0]
     dados_saida = [[prof, dia, comp, '', semestre]
                    for prof, dia, comp in melhor_individuo]
 
@@ -166,6 +173,84 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre):
         distribuir_salas_func(dados_saida, salas_disponiveis)
 
     return dados_saida
+
+def coletar_metricas(populacao, toolbox, cxpb, mutpb, ngen):
+    """Coleta métricas e gera gráfico de desempenho do algoritmo genético."""
+    
+    # Lista para armazenar as médias de fitness
+    medias = []
+
+    logging.info(f"Inicializando AG com CXPB: {cxpb}, MUTPB: {mutpb}, NGEN: {ngen}")
+
+    # Algoritmo genético com coleta de métricas
+    for gen in range(ngen):
+        # Avaliar todos os indivíduos da população
+        fits = list(map(toolbox.evaluate, populacao))
+        for ind, fit in zip(populacao, fits):
+            ind.fitness.values = fit
+        
+        # Coletar a média de fitness
+        media_fitness = np.mean([fit[0] for fit in fits])
+        
+        medias.append(media_fitness)  # Média da população
+        
+        # Log da média no console
+        logging.info(f"Geração {gen+1}: Média Fitness: {media_fitness}")
+
+        # Seleção, cruzamento e mutação
+        populacao = toolbox.select(populacao, len(populacao))
+        populacao = list(map(toolbox.clone, populacao))
+        offspring = list(map(toolbox.clone, populacao))
+        
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+            if np.random.rand() < cxpb:
+                toolbox.mate(child1, child2)
+                del child1.fitness.values
+                del child2.fitness.values
+        
+        for mutant in offspring:
+            if np.random.rand() < mutpb:
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
+
+        populacao[:] = offspring
+
+    # Após todas as gerações
+    logging.info("Finalizando métricas do AG")
+
+    # Gera o gráfico de desempenho (apenas com a média)
+    gerar_grafico(medias)
+
+    return populacao, medias
+
+
+# Função para gerar gráfico de métricas (apenas com a média de fitness)
+def gerar_grafico(medias):
+    plt.figure(figsize=(10, 6))
+
+    # Linha da média de fitness
+    plt.plot(medias, label="Média Fitness", color="green", linestyle="--", marker="o")
+
+    # Limites para o eixo Y para melhorar a visualização
+    plt.ylim([min(medias) * 0.9, max(medias) * 1.1])
+
+    # Labels e título
+    plt.xlabel("Geração")
+    plt.ylabel("Pontuação Fitness")
+    plt.title("Desempenho do Algoritmo Genético (Média de Fitness)")
+    
+    # Legenda
+    plt.legend()
+    
+    # Grade
+    plt.grid(True)
+    
+    # Exibe o gráfico
+    #plt.show()
+    
+    # Salva o gráfico em um arquivo PNG
+    plt.savefig('grafico_desempenho.png')
+    plt.close()  # Fecha a figura para liberar memória
 
 
 # Demais métodos auxiliares como mutação, avaliação, distribuição de salas e criação do indivíduo
