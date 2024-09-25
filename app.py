@@ -246,7 +246,11 @@ def gerar_grafico(medias):
     plt.grid(True)
     
     # Exibe o gráfico
-    plt.show()
+    #plt.show()
+    
+    # Salva o gráfico em um arquivo PNG
+    plt.savefig('grafico_desempenho.png')
+    plt.close()  # Fecha a figura para liberar memória
 
 
 # Demais métodos auxiliares como mutação, avaliação, distribuição de salas e criação do indivíduo
