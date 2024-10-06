@@ -173,52 +173,71 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
 
     return dados_saida
 
-# Demais métodos auxiliares como mutação, avaliação, distribuição de salas e criação do indivíduo
 def criar_individuo(dados):
     def inner():
         individuo = []
-        professor_dias_atribuidos = {linha['Professor']: set()
-                                      for _, linha in dados.iterrows() if linha['Professor'] != 'Geral'}
+        professor_dias_atribuidos = {linha['Professor']: set() for _, linha in dados.iterrows() if linha['Professor'] != 'Geral'}
         dias_semana = {1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sábado'}
-        
+
         for _, linha in dados.iterrows():
             if linha['Professor'] == 'Geral':
                 continue
             professor = linha['Professor']
-            dias_disponiveis = set(
-                linha['Disponibilidade do Professor'].split(', '))
+            dias_disponiveis = set(linha['Disponibilidade do Professor'].split(', '))
             dias_atribuidos = professor_dias_atribuidos[professor]
             componentes = linha['Componente'].split(',')
-            dias_validos = list(dias_disponiveis - dias_atribuidos)
-            
+
+            # Primeiro, priorize as aulas MIX
             for componente in componentes:
-                if componente.strip():
-                    if "_" in componente:
-                        dia_mix = int(componente.split('_')[1])
-                        dia_especifico = dias_semana.get(dia_mix, '')
+                if componente.strip() and "_" in componente:
+                    dia_mix = int(componente.split('_')[1])
+                    dia_especifico = dias_semana.get(dia_mix, '')
+
+                    # Priorize e aloque a aula MIX se o dia estiver disponível
+                    if dia_especifico not in dias_atribuidos:
                         individuo.append((professor, dia_especifico, componente.strip()))
                         dias_atribuidos.add(dia_especifico)
-                    elif dias_validos:
+
+            # Alocação das aulas normais se houver dias disponíveis e não há MIX alocada no mesmo dia
+            for componente in componentes:
+                if componente.strip() and "_" not in componente:
+                    dias_validos = list(dias_disponiveis - dias_atribuidos)
+                    if dias_validos:
                         dia = np.random.choice(dias_validos)
-                        dias_atribuidos.add(dia)
-                        individuo.append((professor, dia, componente.strip()))
-                        dias_validos.remove(dia)
-                    else:
-                        individuo.append((professor, '', componente.strip()))
+                        if dia not in dias_atribuidos:  # Verifica se o professor já está atribuído a esse dia
+                            dias_atribuidos.add(dia)
+                            individuo.append((professor, dia, componente.strip()))
+
         return individuo
     return inner
+
 
 def mutacao(individuo, dados):
     for idx in range(len(individuo)):
         if len(individuo[idx]) == 3:
             professor, dia, componente = individuo[idx]
-            dias_disponiveis = set(dados[dados['Professor'] == professor]
-                                   ['Disponibilidade do Professor'].values[0].split(', '))
-            dias_disponiveis.discard(dia)
-            if dias_disponiveis:
-                novo_dia = np.random.choice(list(dias_disponiveis))
+
+            # Não permite mutação em aulas MIX
+            if "_" in componente:
+                continue
+
+            # Obtém os dias disponíveis para o professor
+            dias_disponiveis = set(dados[dados['Professor'] == professor]['Disponibilidade do Professor'].values[0].split(', '))
+            dias_disponiveis.discard(dia)  # Remove o dia atual da lista de disponíveis
+
+            # Verifica se o professor já tem outra aula nos dias disponíveis
+            dias_atribuidos = set([ind[1] for ind in individuo if ind[0] == professor and ind != individuo[idx]])
+
+            # Filtra apenas os dias válidos
+            dias_validos = dias_disponiveis - dias_atribuidos
+
+            # Se houver dias válidos, faz a mutação
+            if dias_validos:
+                novo_dia = np.random.choice(list(dias_validos))
                 individuo[idx] = (professor, novo_dia, componente)
+    
     return individuo,
+
 
 def avaliar_horario(individuo):
     pontuacao = 0
