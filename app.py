@@ -8,30 +8,26 @@ from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
 
-# Configuração de Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
-CORS(app)  # Adiciona suporte ao CORS
+CORS(app)
 api = Api(app, version='1.0', title='API de Distribuição de Horários',
           description='Uma API para distribuir horários e salas.',
           doc='/api-docs')
 
 app.static_folder = 'frontend'
 
-# Rota para servir o front-end (index.html)
 @app.route('/app')
 def serve_frontend():
     return send_from_directory(app.static_folder, 'index.html')
 
-# Serve arquivos estáticos (CSS, JS, etc.)
 @app.route('/<path:path>')
 def serve_static_files(path):
     return send_from_directory(app.static_folder, path)
 
 app.logger.setLevel(logging.INFO)
 
-# Configuração do DEAP
 if 'FitnessMax' in creator.__dict__:
     del creator.FitnessMax
 if 'Individual' in creator.__dict__:
@@ -42,7 +38,6 @@ creator.create("Individuo", list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
 
-# Namespace para upload
 ns = api.namespace('upload', description='Operações de Upload')
 
 upload_parser = api.parser()
@@ -63,14 +58,12 @@ class UploadFile(Resource):
         distribuir_salas = args['distributeRooms'].lower() == 'true'
         nivel_genetico = args['geneticLevel'].lower()
 
-        # Configurações de operadores genéticos baseados no nível
         configuracoes_geneticas = {
             'razoável': {'cxpb': 0.5, 'mutpb': 0.1, 'ngen': 50, 'tamanho_populacao': 100},
             'normal': {'cxpb': 0.8, 'mutpb': 0.2, 'ngen': 100, 'tamanho_populacao': 200},
             'bom': {'cxpb': 0.95, 'mutpb': 0.3, 'ngen': 200, 'tamanho_populacao': 300}
         }
 
-        # Se o nível genético não for reconhecido, use as configurações normais por padrão
         cxpb, mutpb, ngen, tamanho_populacao = configuracoes_geneticas.get(
             nivel_genetico, configuracoes_geneticas['normal']).values()
         logging.info(f"Nível Genético: {nivel_genetico}, CXPB: {cxpb}, MUTPB: {mutpb}, NGEN: {ngen}, Tamanho da População: {tamanho_populacao}")
@@ -100,25 +93,21 @@ class UploadFile(Resource):
 
                 formato_vermelho = workbook.add_format({'bg_color': 'red', 'font_color': 'black'})
                 
-                # Definir o formato das colunas
                 num_colunas = len(df_saida.columns)
-                worksheet.set_column(0, num_colunas - 1, 20)  # Ajuste o tamanho das colunas conforme necessário
+                worksheet.set_column(0, num_colunas - 1, 20)
                 
-                # Aplica a formatação condicional
                 for idx in range(len(df_saida)):
                     dia_vazio = pd.isna(df_saida.loc[idx, 'Dia da Aula']) or df_saida.loc[idx, 'Dia da Aula'].strip() == ''
                     sala_vazia = pd.isna(df_saida.loc[idx, 'Sala']) or df_saida.loc[idx, 'Sala'].strip() == ''
                     componente = df_saida.loc[idx, 'Componente']
                     professor = df_saida.loc[idx, 'Professor']
 
-                    # Verifica se é um componente MIX
                     if "_" in componente:
                         dia_mix = int(componente.split('_')[1])
                         dias_disponiveis_professor = dados[dados['Professor'] == professor]['Disponibilidade do Professor'].values[0].split(', ')
                         dias_semana = {1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sábado'}
                         dia_especifico = dias_semana.get(dia_mix, '')
 
-                        # Verifica se o dia mix está disponível para o professor
                         if dia_especifico not in dias_disponiveis_professor:
                             worksheet.write_row(idx + 1, 0, df_saida.iloc[idx].values, formato_vermelho)
                     else:
@@ -137,7 +126,6 @@ class UploadFile(Resource):
             return {"message": f"Erro ao processar o arquivo: {str(e)}"}, 500
         
 def validar_componentes_sem_professor(dados):
-    """Valida se há componentes sem professor alocado."""
     erros = []
     for idx, row in dados.iterrows():
         professor = str(row['Professor']).strip() if isinstance(row['Professor'], str) else ''
@@ -149,7 +137,6 @@ def validar_componentes_sem_professor(dados):
         return False, erros
     return True, None
 
-# Método para processar os dados e executar o algoritmo genético
 def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
     toolbox.register("individual", tools.initIterate,
                      creator.Individuo, criar_individuo(dados))
@@ -161,7 +148,6 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
 
     populacao = toolbox.population(n=tamanho_populacao)
     
-    # Coletar métricas durante o algoritmo genético
     resultado = populacao
 
     melhor_individuo = tools.selBest(resultado, k=1)[0]
@@ -187,26 +173,27 @@ def criar_individuo(dados):
             dias_atribuidos = professor_dias_atribuidos[professor]
             componentes = linha['Componente'].split(',')
 
-            # Primeiro, priorize as aulas MIX
             for componente in componentes:
                 if componente.strip() and "_" in componente:
                     dia_mix = int(componente.split('_')[1])
                     dia_especifico = dias_semana.get(dia_mix, '')
 
-                    # Priorize e aloque a aula MIX se o dia estiver disponível
-                    if dia_especifico not in dias_atribuidos:
+                    if dia_especifico in dias_disponiveis:
+                        if dia_especifico not in dias_atribuidos:
+                            individuo.append((professor, dia_especifico, componente.strip()))
+                            dias_atribuidos.add(dia_especifico)
+                    else:
                         individuo.append((professor, dia_especifico, componente.strip()))
-                        dias_atribuidos.add(dia_especifico)
 
-            # Alocação das aulas normais se houver dias disponíveis e não há MIX alocada no mesmo dia
             for componente in componentes:
                 if componente.strip() and "_" not in componente:
                     dias_validos = list(dias_disponiveis - dias_atribuidos)
                     if dias_validos:
                         dia = np.random.choice(dias_validos)
-                        if dia not in dias_atribuidos:  # Verifica se o professor já está atribuído a esse dia
-                            dias_atribuidos.add(dia)
-                            individuo.append((professor, dia, componente.strip()))
+                        dias_atribuidos.add(dia)
+                        individuo.append((professor, dia, componente.strip()))
+                    else:
+                        individuo.append((professor, '', componente.strip()))
 
         return individuo
     return inner
@@ -217,21 +204,15 @@ def mutacao(individuo, dados):
         if len(individuo[idx]) == 3:
             professor, dia, componente = individuo[idx]
 
-            # Não permite mutação em aulas MIX
             if "_" in componente:
                 continue
 
-            # Obtém os dias disponíveis para o professor
             dias_disponiveis = set(dados[dados['Professor'] == professor]['Disponibilidade do Professor'].values[0].split(', '))
-            dias_disponiveis.discard(dia)  # Remove o dia atual da lista de disponíveis
+            dias_disponiveis.discard(dia)
 
-            # Verifica se o professor já tem outra aula nos dias disponíveis
             dias_atribuidos = set([ind[1] for ind in individuo if ind[0] == professor and ind != individuo[idx]])
-
-            # Filtra apenas os dias válidos
             dias_validos = dias_disponiveis - dias_atribuidos
 
-            # Se houver dias válidos, faz a mutação
             if dias_validos:
                 novo_dia = np.random.choice(list(dias_validos))
                 individuo[idx] = (professor, novo_dia, componente)
@@ -255,15 +236,15 @@ def distribuir_salas_func(dados_saida, salas_disponiveis):
                      for dia in set(entrada[1] for entrada in dados_saida)}
     for entrada in dados_saida:
         dia = entrada[1]
-        if dia:  # Verifica se o dia não está vazio
+        if dia:
             if uso_salas_dia.get(dia):
                 if uso_salas_dia[dia]:
                     sala = uso_salas_dia[dia].pop(0)
                     entrada[3] = sala
                 else:
-                    entrada[3] = ''  # Marca a sala como vazia se não houver sala disponível
+                    entrada[3] = ''
         else:
-            entrada[3] = ''  # Marca a sala como vazia se o dia não estiver definido
+            entrada[3] = ''
 
 
 if __name__ == "__main__":
