@@ -7,6 +7,8 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
+from multiprocessing import Pool
+import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -138,6 +140,11 @@ def validar_componentes_sem_professor(dados):
     return True, None
 
 def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
+
+    pool = Pool()  # Isso cria um pool com todos os núcleos disponíveis
+    toolbox.register("map", pool.map)  # Registra a função map para paralelizar a avaliação
+
+
     toolbox.register("individual", tools.initIterate,
                      creator.Individuo, criar_individuo(dados))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -148,20 +155,18 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
 
     populacao = toolbox.population(n=tamanho_populacao)
 
-    hof = tools.HallOfFame(1)
+    # Paralelizando a avaliação dos indivíduos
+    with Pool() as pool:
+        resultados = pool.map(toolbox.evaluate, populacao)  # Aqui é onde a avaliação ocorre paralelamente
 
-    logging.info(f"Iniciando algoritmo genético com {ngen} gerações.")
-    populacao, logbook = algorithms.eaSimple(
-        populacao,
-        toolbox,
-        cxpb=cxpb,
-        mutpb=mutpb, 
-        ngen=ngen, 
-        halloffame=hof,  
-        verbose=True
-    )
+    # Agora atribuímos os resultados de volta para a população
+    for ind, resultado in zip(populacao, resultados):
+        ind.fitness.values = resultado
 
-    melhor_individuo = hof[0]
+    # Rodando o algoritmo genético com a avaliação já realizada
+    result = algorithms.eaSimple(populacao, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
+
+    melhor_individuo = tools.selBest(result[0], k=1)[0]
     dados_saida = [[prof, dia, comp, '', semestre]
                    for prof, dia, comp in melhor_individuo]
 
