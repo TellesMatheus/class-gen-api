@@ -166,9 +166,9 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
                      creator.Individuo, criar_individuo(dados))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", avaliar_horario)
-    toolbox.register("mate", tools.cxUniform, indpb=0.5)
+    toolbox.register("mate", tools.cxTwoPoint)
     toolbox.register("mutate", mutacao, dados=dados)
-    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("select", tools.selBest)
 
     populacao = toolbox.population(n=tamanho_populacao)
     
