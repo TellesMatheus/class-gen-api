@@ -147,10 +147,21 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     populacao = toolbox.population(n=tamanho_populacao)
-    
-    resultado = populacao
 
-    melhor_individuo = tools.selBest(resultado, k=1)[0]
+    hof = tools.HallOfFame(1)
+
+    logging.info(f"Iniciando algoritmo genético com {ngen} gerações.")
+    populacao, logbook = algorithms.eaSimple(
+        populacao,
+        toolbox,
+        cxpb=cxpb,
+        mutpb=mutpb, 
+        ngen=ngen, 
+        halloffame=hof,  
+        verbose=True
+    )
+
+    melhor_individuo = hof[0]
     dados_saida = [[prof, dia, comp, '', semestre]
                    for prof, dia, comp in melhor_individuo]
 
