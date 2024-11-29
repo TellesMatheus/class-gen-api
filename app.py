@@ -7,7 +7,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -139,12 +139,29 @@ def validar_componentes_sem_professor(dados):
         return False, erros
     return True, None
 
+from multiprocessing import Pool, cpu_count
+
+def avaliar_em_lote_lote(individuos):
+    resultados = []
+    for ind in individuos:
+        resultado = avaliar_horario(ind)
+        resultados.append(resultado)
+    return resultados
+
+def avaliar_em_lotes(populacao, toolbox, tamanho_lote=50):
+    lotes = [populacao[i:i + tamanho_lote] for i in range(0, len(populacao), tamanho_lote)]
+    resultados_lotes = []
+
+    with Pool(processes=cpu_count()) as pool:
+        for lote_resultado in pool.map(avaliar_em_lote_lote, lotes):
+            resultados_lotes.extend(lote_resultado)
+
+    for ind, resultado in zip(populacao, resultados_lotes):
+        ind.fitness.values = resultado
+
+    return populacao
+
 def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
-
-    pool = Pool()
-    toolbox.register("map", pool.map) 
-
-
     toolbox.register("individual", tools.initIterate,
                      creator.Individuo, criar_individuo(dados))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -154,12 +171,8 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     populacao = toolbox.population(n=tamanho_populacao)
-
-    with Pool() as pool:
-        resultados = pool.map(toolbox.evaluate, populacao)
-
-    for ind, resultado in zip(populacao, resultados):
-        ind.fitness.values = resultado
+    
+    populacao = avaliar_em_lotes(populacao, toolbox)
 
     result = algorithms.eaSimple(populacao, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
 
@@ -171,6 +184,7 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
         distribuir_salas_func(dados_saida, salas_disponiveis)
 
     return dados_saida
+
 
 def criar_individuo(dados):
     def inner():
