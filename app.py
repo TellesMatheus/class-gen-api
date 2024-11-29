@@ -184,7 +184,9 @@ def criar_individuo(dados):
                             dias_atribuidos.add(dia_especifico)
                     else:
                         individuo.append((professor, dia_especifico, componente.strip()))
-                else:
+
+            for componente in componentes:
+                if componente.strip() and "_" not in componente:
                     dias_validos = list(dias_disponiveis - dias_atribuidos)
                     if dias_validos:
                         dia = np.random.choice(dias_validos)
@@ -192,6 +194,7 @@ def criar_individuo(dados):
                         individuo.append((professor, dia, componente.strip()))
                     else:
                         individuo.append((professor, '', componente.strip()))
+
         return individuo
     return inner
 
