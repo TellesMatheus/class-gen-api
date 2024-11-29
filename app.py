@@ -7,8 +7,6 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import os
 from werkzeug.datastructures import FileStorage
-from multiprocessing import Pool, cpu_count
-import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -62,8 +60,8 @@ class UploadFile(Resource):
 
         configuracoes_geneticas = {
             'razoável': {'cxpb': 0.5, 'mutpb': 0.1, 'ngen': 50, 'tamanho_populacao': 100},
-            'normal': {'cxpb': 0.8, 'mutpb': 0.2, 'ngen': 100, 'tamanho_populacao': 200},
-            'bom': {'cxpb': 0.95, 'mutpb': 0.3, 'ngen': 200, 'tamanho_populacao': 300}
+            'normal': {'cxpb': 0.8, 'mutpb': 0.2, 'ngen': 75, 'tamanho_populacao': 150},
+            'bom': {'cxpb': 0.95, 'mutpb': 0.3, 'ngen': 100, 'tamanho_populacao': 200}
         }
 
         cxpb, mutpb, ngen, tamanho_populacao = configuracoes_geneticas.get(
@@ -139,44 +137,30 @@ def validar_componentes_sem_professor(dados):
         return False, erros
     return True, None
 
-from multiprocessing import Pool, cpu_count
-
-def avaliar_em_lote_lote(individuos):
-    resultados = []
-    for ind in individuos:
-        resultado = avaliar_horario(ind)
-        resultados.append(resultado)
-    return resultados
-
-def avaliar_em_lotes(populacao, toolbox, tamanho_lote=50):
-    lotes = [populacao[i:i + tamanho_lote] for i in range(0, len(populacao), tamanho_lote)]
-    resultados_lotes = []
-
-    with Pool(processes=cpu_count()) as pool:
-        for lote_resultado in pool.map(avaliar_em_lote_lote, lotes):
-            resultados_lotes.extend(lote_resultado)
-
-    for ind, resultado in zip(populacao, resultados_lotes):
-        ind.fitness.values = resultado
-
-    return populacao
-
 def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
     toolbox.register("individual", tools.initIterate,
                      creator.Individuo, criar_individuo(dados))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", avaliar_horario)
-    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mate", tools.cxUniform, indpb=0.5)
     toolbox.register("mutate", mutacao, dados=dados)
-    toolbox.register("select", tools.selBest)
+    toolbox.register("select", tools.selTournament, tournsize=3)
 
     populacao = toolbox.population(n=tamanho_populacao)
+
+    populacao, logbook = algorithms.eaSimple(
+        population=populacao,  #população inicial
+        toolbox=toolbox,       #operadores
+        cxpb=cxpb,             #crossover
+        mutpb=mutpb,           #mutação
+        ngen=ngen,             #número de gerações
+        stats=None,     
+        halloffame=None,
+        verbose=True
+    )
     
-    populacao = avaliar_em_lotes(populacao, toolbox)
-
-    result = algorithms.eaSimple(populacao, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
-
-    melhor_individuo = tools.selBest(result[0], k=1)[0]
+    resultado = populacao
+    melhor_individuo = tools.selBest(resultado, k=1)[0]
     dados_saida = [[prof, dia, comp, '', semestre]
                    for prof, dia, comp in melhor_individuo]
 
@@ -184,7 +168,6 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
         distribuir_salas_func(dados_saida, salas_disponiveis)
 
     return dados_saida
-
 
 def criar_individuo(dados):
     def inner():
