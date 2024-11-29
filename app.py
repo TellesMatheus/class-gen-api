@@ -141,8 +141,8 @@ def validar_componentes_sem_professor(dados):
 
 def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, mutpb, ngen, tamanho_populacao):
 
-    pool = Pool()  # Isso cria um pool com todos os núcleos disponíveis
-    toolbox.register("map", pool.map)  # Registra a função map para paralelizar a avaliação
+    pool = Pool()
+    toolbox.register("map", pool.map) 
 
 
     toolbox.register("individual", tools.initIterate,
@@ -155,15 +155,12 @@ def processar_dados(dados, salas_disponiveis, distribuir_salas, semestre, cxpb, 
 
     populacao = toolbox.population(n=tamanho_populacao)
 
-    # Paralelizando a avaliação dos indivíduos
     with Pool() as pool:
-        resultados = pool.map(toolbox.evaluate, populacao)  # Aqui é onde a avaliação ocorre paralelamente
+        resultados = pool.map(toolbox.evaluate, populacao)
 
-    # Agora atribuímos os resultados de volta para a população
     for ind, resultado in zip(populacao, resultados):
         ind.fitness.values = resultado
 
-    # Rodando o algoritmo genético com a avaliação já realizada
     result = algorithms.eaSimple(populacao, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
 
     melhor_individuo = tools.selBest(result[0], k=1)[0]
